@@ -1,0 +1,4 @@
+https://happytesting.microtecstage.com/finance/masterdata/treasury-list
+https://happytesting.microtecstage.com/finance/reports/bank-account-statement
+https://happytesting.microtecstage.com/finance/masterdata/payment-method/edit/1
+https://happytesting.microtecstage.com/finance/masterdata/bank-definition/add-bank-definition

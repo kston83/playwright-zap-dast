@@ -1,0 +1,25 @@
+{
+  "name": "OWASP ZAP Automated Pentration Testing with Playwright",
+  "description": "Automated Security Testing using ZAP and Playwright",
+  "license": "Apache-2.0",
+  "version": "1.0.1",
+  "author": {
+    "name": "MOHAMED SAID IBRAHIM",
+    "email": "muhammedsaidsyed215@gmail.com"
+  },
+  "scripts": {
+    "zapTest": "npx playwright test src/runZap.spec.js",
+    "generateCSV": "node generate_csv.cjs"
+  },
+  "dependencies": {
+    "@playwright/test": "^1.55.0",
+    "axios": "^1.12.2",
+    "cheerio": "^1.1.2",
+    "dotenv": "^17.2.2",
+    "install": "^0.13.0",
+    "jsdom": "^27.0.0",
+    "json2csv": "^6.0.0-alpha.2",
+    "npm": "^11.6.0",
+    "playwright": "^1.55.0"
+  }
+}

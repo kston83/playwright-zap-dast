@@ -1,0 +1,43 @@
+{
+    "frameworks": {
+        "angular": {
+            "componentPrefixes": [
+                "app-",
+                "mat-",
+                "ng-",
+                "p-"
+            ],
+            "testAttribute": "data-testid",
+            "customCommands": [
+                "angularSpecificCommand"
+            ]
+        },
+        "react": {
+            "componentPrefixes": [],
+            "testAttribute": "data-testid",
+            "customCommands": [
+                "reactGet",
+                "reactFireEvent"
+            ]
+        },
+        "vue": {
+            "componentPrefixes": [
+                "v-",
+                "vue-"
+            ],
+            "testAttribute": "data-cy",
+            "customCommands": [
+                "vueGet",
+                "vueTrigger"
+            ]
+        },
+        "bootstrap": {
+            "componentPrefixes": [],
+            "testAttribute": "data-testid",
+            "customCommands": [
+                "bootstrapClick",
+                "bootstrapModal"
+            ]
+        }
+    }
+}
