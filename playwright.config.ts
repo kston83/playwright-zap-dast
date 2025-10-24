@@ -5,7 +5,7 @@ dotenv.config();
 export default defineConfig({
   testDir: './src',
   timeout: 120 * 60 * 1000, // 120 minutes per test max
-  globalSetup: './global-setup.ts',
+  globalSetup: process.env.USE_AUTHENTICATION === 'false' ? undefined : './global-setup.ts',
   expect: {
     timeout: 36000_000, // keep per-expect reasonable (36000s)
   },

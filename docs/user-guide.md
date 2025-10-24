@@ -147,19 +147,62 @@ BASE_URL=https://your-app.com
 # Browser Configuration  
 HEADLESS=false                      # Set to 'true' for CI/CD environments
 BROWSER_TIMEOUT=60000               # Browser timeout in milliseconds
+
+# Scan Mode Configuration
+USE_AUTHENTICATION=true             # Options: true, false, mixed
+SPIDER_TIMEOUT=300000              # Spider scan timeout (5 minutes)
+ACTIVE_SCAN_TIMEOUT=600000         # Active scan timeout (10 minutes)  
+SCAN_DELAY=5000                    # Delay between scans in milliseconds
+
+# URL Filtering (Optional)
+URL_INCLUDE_PATTERN=               # Regex to include specific URLs
+URL_EXCLUDE_PATTERN=               # Regex to exclude specific URLs
+URL_LIMIT=                         # Limit number of URLs to scan
 ```
 
 ### URL Configuration
 
-Edit `urls.txt` to specify which pages to scan:
+The tool supports different URL files based on scan mode:
 
+#### Default Configuration (`urls.txt`)
 ```plaintext
-# Add one URL per line
+# Add one URL per line - used for all modes if specific files don't exist
 https://your-app.com/dashboard
 https://your-app.com/admin/users
 https://your-app.com/reports/financial
 https://your-app.com/settings/profile
 ```
+
+#### Authenticated URLs (`urls-authenticated.txt`)
+```plaintext
+# Protected pages that require login
+https://your-app.com/dashboard
+https://your-app.com/admin/users
+https://your-app.com/finance/reports
+https://your-app.com/profile/settings
+```
+
+#### Unauthenticated URLs (`urls-unauthenticated.txt`)
+```plaintext
+# Public pages that don't require authentication
+https://your-app.com/
+https://your-app.com/login
+https://your-app.com/about
+https://your-app.com/contact
+https://your-app.com/help
+https://your-app.com/api/public/health
+```
+
+#### URL File Priority
+1. **Authenticated Mode**: `urls-authenticated.txt` → `urls.txt`
+2. **Unauthenticated Mode**: `urls-unauthenticated.txt` → `urls.txt`  
+3. **Mixed Mode**: Uses both authenticated and unauthenticated files
+
+#### URL File Features
+- **Comments**: Lines starting with `#` are ignored
+- **Empty Lines**: Automatically filtered out
+- **Whitespace**: Leading/trailing spaces are trimmed
+- **Filtering**: Support include/exclude patterns via environment variables
 
 ### Framework-Specific Configuration
 
@@ -217,6 +260,34 @@ npm run generateCSV
    - Shuts down ZAP sessions
    - Organizes output files
 
+### Scan Mode Options
+
+The tool supports three scanning modes:
+
+#### 1. Authenticated Scanning (Default)
+```bash
+# Explicitly run authenticated scan
+npm run zapTest:auth
+
+# Or set environment variable
+USE_AUTHENTICATION=true npm run zapTest
+```
+
+#### 2. Unauthenticated Scanning  
+```bash
+# Run unauthenticated scan
+npm run zapTest:unauth
+
+# Or set environment variable
+USE_AUTHENTICATION=false npm run zapTest
+```
+
+#### 3. Mixed Mode Scanning
+```bash
+# Scan both authenticated and unauthenticated URLs
+USE_AUTHENTICATION=mixed npm run zapTest
+```
+
 ### Command Options
 
 ```bash
@@ -228,6 +299,10 @@ TIMEOUT=300000 npm run zapTest
 
 # Run in headless mode (for CI/CD)
 HEADLESS=true npm run zapTest
+
+# Run with URL filtering
+URL_INCLUDE_PATTERN="admin|settings" npm run zapTest
+URL_EXCLUDE_PATTERN="logout|delete" npm run zapTest
 ```
 
 ### Monitoring Scan Progress
@@ -382,6 +457,46 @@ for (let i = 0; i < urls.length; i += batchSize) {
   await Promise.all(batch.map(url => scanUrl(url)));
 }
 ```
+
+### CLI Helper Script
+
+The tool includes a convenient CLI helper for running different scan modes:
+
+```bash
+# Quick scan commands
+npm run scan auth                    # Authenticated scan
+npm run scan unauth                  # Unauthenticated scan  
+npm run scan mixed                   # Both modes
+
+# With options
+node scan.js auth --headless         # Headless authenticated scan
+node scan.js unauth --limit=5        # First 5 URLs only
+node scan.js mixed --include=admin   # Only admin pages
+node scan.js auth --exclude=logout   # Exclude logout pages
+
+# Help
+npm run scan:help
+```
+
+### Scan Mode Details
+
+#### Authenticated Mode (`USE_AUTHENTICATION=true`)
+- Runs `global-setup.ts` to create authenticated session
+- Uses `storageState.json` for maintaining login state
+- Scans protected application areas
+- URL source: `urls-authenticated.txt` → `urls.txt`
+
+#### Unauthenticated Mode (`USE_AUTHENTICATION=false`)  
+- Skips authentication setup
+- Scans public pages without login
+- Ideal for testing login pages, marketing content, APIs
+- URL source: `urls-unauthenticated.txt` → `urls.txt`
+
+#### Mixed Mode (`USE_AUTHENTICATION=mixed`)
+- Runs both authenticated and unauthenticated scans
+- Comprehensive coverage of entire application surface  
+- Uses separate URL files for each mode
+- Longer scan times but complete coverage
 
 ### Custom Authentication
 

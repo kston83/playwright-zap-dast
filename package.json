@@ -8,7 +8,12 @@
   },
   "scripts": {
     "zapTest": "npx playwright test src/runZap.spec.js",
-    "generateCSV": "node generate_csv.cjs"
+    "zapTest:auth": "USE_AUTHENTICATION=true npx playwright test src/runZap.spec.js",
+    "zapTest:unauth": "USE_AUTHENTICATION=false npx playwright test src/runZap.spec.js",
+    "zapTest:mixed": "USE_AUTHENTICATION=mixed npx playwright test src/runZap.spec.js",
+    "generateCSV": "node generate_csv.cjs",
+    "scan": "node scan.js",
+    "scan:help": "node scan.js --help"
   },
   "dependencies": {
     "@playwright/test": "^1.55.0",

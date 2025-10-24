@@ -7,16 +7,23 @@ const { runActiveScan } = require("./ZAPFuns/runActiveScan");
 const { generateReport } = require("./ZAPFuns/generateReport");
 const { delay } = require("./ZAPFuns/delay_fun");
 const { getURLsList } = require("../Utils/getListURLS");
+const { getURLsConfiguration } = require("../Utils/urlManager");
 const { createNewPage } = require("./PlaywrightFuns/createNewPage");
 require("dotenv").config(); // Load environment variables from .env file
 
 test.describe("Automated Penetration Testing with OWASP ZAP", () => {
   let browser, page, zapSession;
   let URLS = [];
-  var ZAP_PROXY = process.env.ZAP_PROXY || "http://localhost:8888";
+  let scanConfig = {};
+  const ZAP_PROXY = process.env.ZAP_PROXY || "http://localhost:8888";
 
   test.beforeAll(async () => {
-    URLS = getURLsList();
+    // Use enhanced URL configuration
+    scanConfig = getURLsConfiguration();
+    URLS = scanConfig.urls;
+    
+    console.log(`🔧 Scan Mode: ${scanConfig.useAuthentication ? 'Authenticated' : 'Unauthenticated'}`);
+    console.log(`📁 URL Source: ${scanConfig.urlsFile}`);
   });
 
   test.beforeEach("Setup and Authentication", async () => {

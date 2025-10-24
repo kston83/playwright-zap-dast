@@ -1,0 +1,11 @@
+# Unauthenticated URLs - Public pages that don't require login
+# These are typically marketing pages, documentation, login pages, etc.
+
+https://happytesting.microtecstage.com/
+https://happytesting.microtecstage.com/login
+https://happytesting.microtecstage.com/about
+https://happytesting.microtecstage.com/contact
+https://happytesting.microtecstage.com/privacy
+https://happytesting.microtecstage.com/terms
+https://happytesting.microtecstage.com/help
+https://happytesting.microtecstage.com/api/public/health
