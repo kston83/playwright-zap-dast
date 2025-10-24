@@ -5,7 +5,7 @@ dotenv.config();
 export default defineConfig({
   testDir: './src',
   timeout: 120 * 60 * 1000, // 120 minutes per test max
-  globalSetup: './global-setup.ts',
+  globalSetup: process.env.USE_AUTHENTICATION === 'false' ? undefined : './global-setup.ts',
   expect: {
     timeout: 36000_000, // keep per-expect reasonable (36000s)
   },
@@ -15,11 +15,11 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
 
   use: {
-    storageState: 'storageState.json',
+    storageState: process.env.USE_AUTHENTICATION === 'false' ? undefined : 'storageState.json',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
     baseURL: process.env.BASE_URL || 'http://localhost:3000',
-    headless: false,
+    headless: process.env.USE_AUTHENTICATION === 'false' ? false : (process.env.HEADLESS === 'true'),
     viewport: { width: 1280, height: 720 },
     ignoreHTTPSErrors: true,
     trace: 'on-first-retry',

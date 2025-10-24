@@ -1,0 +1,12 @@
+# Authenticated URLs - Pages that require login
+# These are protected application pages
+
+https://happytesting.microtecstage.com/dashboard
+https://happytesting.microtecstage.com/finance/masterdata/treasury-list
+https://happytesting.microtecstage.com/finance/reports/bank-account-statement
+https://happytesting.microtecstage.com/finance/masterdata/payment-method/edit/1
+https://happytesting.microtecstage.com/finance/masterdata/bank-definition/add-bank-definition
+https://happytesting.microtecstage.com/admin/users
+https://happytesting.microtecstage.com/admin/settings
+https://happytesting.microtecstage.com/profile
+https://happytesting.microtecstage.com/api/protected/user-data
