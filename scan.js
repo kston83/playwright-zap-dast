@@ -25,15 +25,19 @@ OPTIONS:
   --headless    Run in headless mode (no browser UI)
   --limit=N     Scan only first N URLs
   --include=X   Include only URLs matching regex pattern X
-  --exclude=X   Exclude URLs matching regex pattern X  
+  --exclude=X   Exclude URLs matching regex pattern X
+  --urls=FILE   Use custom URL file instead of default selection
+  --localhost   Quick setup for localhost:3000 scanning
   --help, -h    Show this help message
 
 EXAMPLES:
-  node scan.js auth                    # Authenticated scan
-  node scan.js unauth --headless       # Unauthenticated headless scan
-  node scan.js mixed --limit=5         # Mixed mode, first 5 URLs only
-  node scan.js auth --include=admin    # Only scan admin pages
-  node scan.js unauth --exclude=api    # Exclude API endpoints
+  node scan.js auth                           # Authenticated scan
+  node scan.js unauth --headless              # Unauthenticated headless scan
+  node scan.js mixed --limit=5                # Mixed mode, first 5 URLs only
+  node scan.js auth --include=admin           # Only scan admin pages
+  node scan.js unauth --exclude=api           # Exclude API endpoints
+  node scan.js unauth --localhost             # Quick localhost:3000 scan
+  node scan.js unauth --urls=urls-local.txt   # Use custom URL file
 
 ENVIRONMENT FILES:
   .env                    Main configuration
@@ -83,6 +87,18 @@ function runScan(mode, options = {}) {
     env.URL_EXCLUDE_PATTERN = options.exclude;
   }
   
+  if (options.urls) {
+    env.URLS_FILE = options.urls;
+  }
+  
+  if (options.localhost) {
+    // Create temporary localhost URL file
+    const localhostUrls = 'http://localhost:3000/\n';
+    fs.writeFileSync('urls-localhost-temp.txt', localhostUrls);
+    env.URLS_FILE = 'urls-localhost-temp.txt';
+    console.log('📝 Created temporary localhost URL file');
+  }
+  
   console.log(`🚀 Starting ${mode} scan...`);
   
   // Run the scan
@@ -93,6 +109,12 @@ function runScan(mode, options = {}) {
   });
   
   child.on('close', (code) => {
+    // Clean up temporary localhost file if created
+    if (options.localhost && fs.existsSync('urls-localhost-temp.txt')) {
+      fs.unlinkSync('urls-localhost-temp.txt');
+      console.log('🗑️  Cleaned up temporary URL file');
+    }
+    
     if (code === 0) {
       console.log('✅ Scan completed successfully');
       console.log('📊 Run "npm run generateCSV" to create consolidated reports');
@@ -150,12 +172,16 @@ const options = {};
 for (const arg of args.slice(1)) {
   if (arg === '--headless') {
     options.headless = true;
+  } else if (arg === '--localhost') {
+    options.localhost = true;
   } else if (arg.startsWith('--limit=')) {
     options.limit = Number.parseInt(arg.split('=')[1]);
   } else if (arg.startsWith('--include=')) {
     options.include = arg.split('=')[1];
   } else if (arg.startsWith('--exclude=')) {
     options.exclude = arg.split('=')[1];
+  } else if (arg.startsWith('--urls=')) {
+    options.urls = arg.split('=')[1];
   } else {
     console.error(`❌ Unknown option: ${arg}`);
     console.log('Run "node scan.js --help" for usage information');

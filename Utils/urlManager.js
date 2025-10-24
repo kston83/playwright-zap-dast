@@ -6,6 +6,7 @@ const path = require("node:path");
  */
 export function getURLsConfiguration() {
   const useAuthentication = process.env.USE_AUTHENTICATION !== 'false';
+  const customUrlsFile = process.env.URLS_FILE; // Allow custom URL file
   const authUrlsFile = path.join(process.cwd(), "urls-authenticated.txt");
   const unauthUrlsFile = path.join(process.cwd(), "urls-unauthenticated.txt");
   const defaultUrlsFile = path.join(process.cwd(), "urls.txt");
@@ -14,7 +15,11 @@ export function getURLsConfiguration() {
   let urls = [];
   
   // Determine which URL file to use
-  if (useAuthentication) {
+  if (customUrlsFile && fs.existsSync(customUrlsFile)) {
+    // Use custom URL file if specified
+    urlsFile = customUrlsFile;
+    console.log(`📋 Using custom URLs from ${path.basename(customUrlsFile)}`);
+  } else if (useAuthentication) {
     // Check for authenticated-specific URLs first
     if (fs.existsSync(authUrlsFile)) {
       urlsFile = authUrlsFile;

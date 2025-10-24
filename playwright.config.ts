@@ -15,11 +15,11 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
 
   use: {
-    storageState: 'storageState.json',
+    storageState: process.env.USE_AUTHENTICATION === 'false' ? undefined : 'storageState.json',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
     baseURL: process.env.BASE_URL || 'http://localhost:3000',
-    headless: false,
+    headless: process.env.USE_AUTHENTICATION === 'false' ? false : (process.env.HEADLESS === 'true'),
     viewport: { width: 1280, height: 720 },
     ignoreHTTPSErrors: true,
     trace: 'on-first-retry',

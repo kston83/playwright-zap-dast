@@ -1,0 +1,7 @@
+# Minimal localhost setup - Spider will discover the rest!
+http://localhost:8000/
+
+# Only add these if they're NOT reachable from the homepage:
+# http://localhost:3000/admin
+# http://localhost:3000/api/health
+# http://localhost:3000/hidden-page

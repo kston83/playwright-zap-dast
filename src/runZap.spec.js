@@ -29,8 +29,9 @@ test.describe("Automated Penetration Testing with OWASP ZAP", () => {
   test.beforeEach("Setup and Authentication", async () => {
     console.log(`ZAP_PROXY::: ${ZAP_PROXY}`);
     // ** Define the Browser
+    const isHeadless = process.env.USE_AUTHENTICATION === 'false' ? false : (process.env.HEADLESS === 'true');
     browser = await chromium.launch({
-      headless: false,
+      headless: isHeadless,
       args: [`--proxy-server=${ZAP_PROXY}`, "--ignore-certificate-errors"],
     });
     page = await createNewPage(browser);
