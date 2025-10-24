@@ -1,5 +1,45 @@
 # Playwright ZAP DAST User Guide
 
+## Quick Reference
+
+**Common Commands:**
+```bash
+# Scan modes
+npm run zapTest                      # Default (authenticated if configured)
+npm run zapTest:auth                 # Authenticated only
+npm run zapTest:unauth               # Unauthenticated only
+npm run zapTest:mixed                # Both modes
+
+# CLI helper
+node scan.js auth                    # Authenticated scan
+node scan.js unauth --localhost      # Quick localhost scan
+node scan.js mixed --limit=10        # Mixed mode, 10 URLs
+
+# Generate reports
+npm run generateCSV                  # Create CSV summary
+
+# Setup
+npx playwright install               # Install browsers
+npm run scan:help                    # Show CLI help
+```
+
+**Key Files:**
+- `.env` - Credentials and configuration
+- `urls.txt` - Default URLs to scan
+- `urls-authenticated.txt` - Protected pages
+- `urls-unauthenticated.txt` - Public pages
+- `storageState.json` - Saved auth session
+- `Output/` - HTML scan reports
+- `playwright.config.ts` - Playwright settings
+
+**Quick Troubleshooting:**
+- ZAP not running? `docker run -u zap -p 127.0.0.1:8888:8888 -d owasp/zap2docker-stable ...`
+- Auth failing? Check `.env` credentials and `COMMON_SELECTOR`
+- No `storageState.json`? Run global setup or use unauthenticated mode
+- Memory issues? Use `NODE_OPTIONS="--max-old-space-size=4096"`
+
+---
+
 ## Table of Contents
 1. [Overview](#overview)
 2. [Quick Start](#quick-start)
@@ -23,13 +63,57 @@ The Playwright ZAP DAST (Dynamic Application Security Testing) tool is an automa
 
 This tool enables security teams, QA engineers, and developers to perform automated penetration testing on web applications with authenticated user sessions.
 
+### Architecture: How Playwright and ZAP Work Together
+
+This tool uses a **proxy-based architecture** where Playwright and ZAP collaborate:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Scan Orchestration                        │
+│                   (runZap.spec.js)                          │
+└────────────┬───────────────────────────────┬────────────────┘
+             │                               │
+             ▼                               ▼
+    ┌────────────────┐              ┌────────────────┐
+    │   Playwright   │◄────────────►│   OWASP ZAP    │
+    │    Browser     │   Proxies    │  (Port 8888)   │
+    │  Automation    │   Traffic    │                │
+    └────────┬───────┘              └────────┬───────┘
+             │                               │
+             ▼                               ▼
+    ┌────────────────┐              ┌────────────────┐
+    │ Authentication │              │  Spider Scan   │
+    │ storageState   │              │  Active Scan   │
+    │    .json       │              │  Report Gen    │
+    └────────────────┘              └────────────────┘
+```
+
+**Key Points:**
+1. **Playwright's Role**: 
+   - Handles complex authentication flows (login forms, MFA, CSRF tokens)
+   - Maintains authenticated browser sessions via `storageState.json`
+   - Navigates to URLs with full JavaScript execution
+   - Routes all traffic through ZAP proxy
+
+2. **ZAP's Role**:
+   - Passively monitors all HTTP traffic from Playwright
+   - Actively scans for vulnerabilities (XSS, SQLi, etc.)
+   - Generates security reports with findings
+
+3. **Why Both Are Needed**:
+   - ZAP alone struggles with modern auth (forms, CSRF, JavaScript)
+   - Playwright alone doesn't perform security testing
+   - Together: Playwright authenticates, ZAP scans authenticated pages
+
 ### Key Features
 
 ✅ **Authenticated Scanning**: Automatically login and maintain user sessions during scans  
-✅ **Multi-URL Support**: Scan multiple application pages from a simple text file  
+✅ **Multi-URL Support**: Scan multiple application pages from simple text files  
 ✅ **Comprehensive Reports**: Generate detailed HTML reports and consolidated CSV summaries  
-✅ **CI/CD Integration**: Ready-to-use GitHub Actions workflow for automated security testing  
+✅ **CI/CD Integration**: Ready-to-use workflow for automated security testing  
+✅ **Multiple Scan Modes**: Authenticated, unauthenticated, or mixed mode scanning
 ✅ **Framework Support**: Built-in support for Angular, React, Vue, and Bootstrap applications  
+✅ **Flexible URL Management**: Separate URL files for different scan scenarios  
 
 ### Use Cases
 
@@ -43,7 +127,7 @@ This tool enables security teams, QA engineers, and developers to perform automa
 ### 30-Second Setup
 ```bash
 # 1. Clone and install
-git clone <repository-url>
+git clone https://github.com/kston83/playwright-zap-dast.git
 cd playwright-zap-dast
 npm install
 npx playwright install
@@ -52,10 +136,10 @@ npx playwright install
 docker run -u zap -p 127.0.0.1:8888:8888 -d owasp/zap2docker-stable zap.sh -daemon -host 0.0.0.0 -port 8888 -config api.disablekey=true
 
 # 3. Configure environment
-cp .env.example .env  # Edit with your credentials
+touch .env  # Add your credentials (see Configuration section)
 
 # 4. Add URLs to scan
-echo "https://your-app.com/login" >> urls.txt
+echo "https://your-app.com/" >> urls.txt
 
 # 5. Run scan
 npm run zapTest
@@ -80,7 +164,7 @@ npm run zapTest
 ### Step 1: Repository Setup
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/playwright-zap-dast.git
+git clone https://github.com/kston83/playwright-zap-dast.git
 cd playwright-zap-dast
 
 # Install dependencies
@@ -133,26 +217,22 @@ npx playwright --version
 Create a `.env` file in the project root:
 
 ```bash
-# Application Authentication
+# Application Authentication (Required for authenticated scans)
 LOGIN_URL=https://your-app.com/login
 LOGIN_EMAIL=test-user@example.com
 LOGIN_PASSWORD=your-secure-password
 COMMON_SELECTOR=.dashboard-content  # Element that appears after successful login
 
-# ZAP Configuration
+# ZAP Configuration (Required)
 ZAP_PROXY=http://localhost:8888
-ZAP_API_KEY=                        # Optional: Leave empty if api.disablekey=true
+
+# Browser Configuration (Optional)
+HEADLESS=false                      # Set to 'true' for CI/CD environments
 BASE_URL=https://your-app.com
 
-# Browser Configuration  
-HEADLESS=false                      # Set to 'true' for CI/CD environments
-BROWSER_TIMEOUT=60000               # Browser timeout in milliseconds
-
-# Scan Mode Configuration
+# Scan Mode Configuration (Optional - defaults shown)
 USE_AUTHENTICATION=true             # Options: true, false, mixed
-SPIDER_TIMEOUT=300000              # Spider scan timeout (5 minutes)
-ACTIVE_SCAN_TIMEOUT=600000         # Active scan timeout (10 minutes)  
-SCAN_DELAY=5000                    # Delay between scans in milliseconds
+URLS_FILE=                          # Custom URL file path (optional)
 
 # URL Filtering (Optional)
 URL_INCLUDE_PATTERN=               # Regex to include specific URLs
@@ -204,6 +284,41 @@ https://your-app.com/api/public/health
 - **Whitespace**: Leading/trailing spaces are trimmed
 - **Filtering**: Support include/exclude patterns via environment variables
 
+### Understanding What Gets Scanned
+
+#### URL Files as "Seed URLs"
+The URLs you specify in your URL files are **seed URLs** (starting points). ZAP's spider will automatically discover and scan additional pages:
+
+**What You MUST Specify:**
+- Homepage/landing pages: `https://your-app.com/`
+- Login pages (if not linked): `https://your-app.com/login`
+- API entry points: `https://your-app.com/api`
+- Admin panels (if not reachable through navigation)
+- Isolated sections not linked from main navigation
+
+**What Gets Auto-Discovered:**
+- All navigation menu links
+- Footer links and secondary pages
+- Form submission endpoints
+- AJAX/API calls triggered by JavaScript
+- Dynamic routes (React Router, Vue Router, etc.)
+- Hidden form fields and endpoints
+- JavaScript-generated URLs
+
+**Example:**
+If your `urls.txt` contains only:
+```
+https://your-app.com/
+```
+
+ZAP's spider will automatically find and scan:
+- `/about`, `/contact`, `/pricing` (if linked)
+- `/api/users`, `/api/products` (if called by pages)
+- Dynamic routes like `/product/123`
+- Form submission endpoints
+
+**Best Practice:** Start with minimal seed URLs and let the spider discover the rest!
+
 ### Framework-Specific Configuration
 
 The `framework-config.json` file contains selectors and configurations for different web frameworks:
@@ -241,24 +356,68 @@ npm run generateCSV
 ### Scan Process Flow
 
 1. **Authentication Setup** (`global-setup.ts`)
+   - Only runs when `USE_AUTHENTICATION` is `true` or `mixed`
    - Navigates to login URL
    - Performs authentication
    - Saves session state to `storageState.json`
+   - Skipped for unauthenticated scans
 
-2. **URL Processing** (`runZap.spec.js`)
-   - Reads URLs from `urls.txt`
-   - Launches browser with ZAP proxy configuration
-   - Iterates through each URL
+2. **Browser Launch** (`runZap.spec.js`)
+   - Launches Chromium with ZAP proxy configuration
+   - Loads authenticated session if available
+   - Configures browser to route traffic through ZAP (port 8888)
 
-3. **Security Scanning** (for each URL)
-   - **Spider Scan**: Discovers links and application structure
-   - **Active Scan**: Performs vulnerability testing and attack simulations
-   - **Report Generation**: Creates detailed HTML report
+3. **URL Processing**
+   - Reads URLs from appropriate file (see URL Configuration)
+   - Applies filtering if `URL_INCLUDE_PATTERN` or `URL_EXCLUDE_PATTERN` set
+   - Limits URLs if `URL_LIMIT` specified
+   - Iterates through each URL sequentially
 
-4. **Cleanup**
+4. **Security Scanning** (for each URL)
+   - **Navigation**: Playwright visits the URL with auth cookies
+   - **Spider Scan**: ZAP discovers links and application structure
+   - **Active Scan**: ZAP performs vulnerability testing (XSS, SQLi, etc.)
+   - **Report Generation**: Creates detailed HTML report per URL
+
+5. **Cleanup**
    - Closes browser sessions
    - Shuts down ZAP sessions
-   - Organizes output files
+   - Organizes output files in `Output/` directory
+
+### Screenshot and Video Capture
+
+The tool includes Playwright's screenshot/video capabilities, configured for **debugging only**:
+
+**Current Configuration** (`playwright.config.ts`):
+```typescript
+screenshot: 'only-on-failure',  // Captures when Playwright test fails
+video: 'retain-on-failure',     // Saves video when test fails
+```
+
+**Why Minimal Capture?**
+- ZAP generates comprehensive HTML reports with HTTP traffic details
+- Screenshots don't add security value (ZAP cares about traffic, not visuals)
+- Videos create large files with minimal benefit
+- Only useful for debugging Playwright navigation issues
+
+**When Screenshots ARE Captured:**
+- Playwright navigation timeout
+- Login/authentication failure
+- Browser crash or error
+- Test assertion failure
+
+**Storage Location:**
+- Screenshots: `test-results/` directory
+- Videos: `test-results/` directory (only on failure)
+
+**If You Want Visual Evidence:**
+You can modify the configuration for audit trails:
+```typescript
+// In playwright.config.ts - for audit/compliance
+screenshot: 'on',           // Capture every page
+video: 'on',                // Record all sessions
+// Warning: This creates significant storage overhead!
+```
 
 ### Scan Mode Options
 
@@ -376,18 +535,77 @@ your-app.com/admin,Weak Authentication,Medium,1
 
 ## Advanced Usage
 
+### Using the CLI Helper Script
+
+The `scan.js` helper provides convenient commands for common scenarios:
+
+```bash
+# Basic scan modes
+node scan.js auth                    # Authenticated scanning only
+node scan.js unauth                  # Unauthenticated scanning only
+node scan.js mixed                   # Both authenticated and unauthenticated
+node scan.js both                    # Alias for mixed
+
+# With options
+node scan.js unauth --headless       # Run without browser UI
+node scan.js auth --limit=10         # Scan first 10 URLs only
+node scan.js unauth --include=admin  # Only URLs matching "admin"
+node scan.js auth --exclude=logout   # Skip URLs matching "logout"
+node scan.js unauth --urls=custom.txt # Use custom URL file
+
+# Localhost development
+node scan.js unauth --localhost      # Quick localhost:3000 scan
+
+# Get help
+node scan.js --help
+npm run scan:help
+```
+
+**CLI Options:**
+- `--headless`: Run browser in headless mode
+- `--limit=N`: Scan only first N URLs
+- `--include=PATTERN`: Include only URLs matching regex pattern
+- `--exclude=PATTERN`: Exclude URLs matching regex pattern  
+- `--urls=FILE`: Use custom URL file
+- `--localhost`: Quick setup for localhost:3000
+
+### Custom URL Filtering
+
+You can filter URLs without modifying the URL files:
+
+**Environment Variable Method:**
+```bash
+# Include only admin pages
+URL_INCLUDE_PATTERN="admin|settings" npm run zapTest
+
+# Exclude sensitive operations
+URL_EXCLUDE_PATTERN="logout|delete|remove" npm run zapTest
+
+# Limit to first 5 URLs
+URL_LIMIT=5 npm run zapTest
+```
+
+**CLI Method:**
+```bash
+node scan.js auth --include="admin|dashboard" --exclude="logout" --limit=10
+```
+
 ### Custom Scan Profiles
 
-You can customize ZAP scan behavior by modifying the scan functions:
+Customize ZAP scan behavior by modifying scan parameters:
 
 ```javascript
-// In src/ZAPFuns/runActiveScan.js
-// Add custom scan policies or exclusions
-const scanPolicy = {
-  // Custom scanning rules
-  excludePatterns: ['.*logout.*', '.*delete.*'],
-  includePatterns: ['.*api.*', '.*admin.*']
-};
+// Example: Modify src/ZAPFuns/runActiveScan.js
+// Adjust scan intensity or add exclusions
+const scanResponse = await axios.get(`${ZAP_PROXY}/JSON/ascan/action/scan/`, {
+  params: { 
+    url: url, 
+    recurse: true,
+    inScopeOnly: false,
+    scanPolicyName: 'Default Policy',  // Use custom policy
+    apikey: zapSession 
+  }
+});
 ```
 
 ### CI/CD Integration
@@ -460,21 +678,28 @@ for (let i = 0; i < urls.length; i += batchSize) {
 
 ### CLI Helper Script
 
-The tool includes a convenient CLI helper for running different scan modes:
+The tool includes a convenient CLI helper (`scan.js`) for running different scan modes:
 
 ```bash
 # Quick scan commands
-npm run scan auth                    # Authenticated scan
-npm run scan unauth                  # Unauthenticated scan  
-npm run scan mixed                   # Both modes
+node scan.js auth                    # Authenticated scan
+node scan.js unauth                  # Unauthenticated scan  
+node scan.js mixed                   # Both modes (alias: both)
+
+# Localhost development scanning
+node scan.js unauth --localhost      # Quick localhost:3000 scan
+node scan.js unauth --localhost --headless
 
 # With options
 node scan.js auth --headless         # Headless authenticated scan
 node scan.js unauth --limit=5        # First 5 URLs only
 node scan.js mixed --include=admin   # Only admin pages
 node scan.js auth --exclude=logout   # Exclude logout pages
+node scan.js unauth --urls=urls-localhost.txt # Use custom URL file
 
 # Help
+node scan.js --help
+# or
 npm run scan:help
 ```
 
@@ -540,13 +765,16 @@ Error: connect ECONNREFUSED 127.0.0.1:8888
 #### 2. Authentication Failures
 ```
 ❌ Navigation failed for https://app.com/dashboard: Timeout 60000ms exceeded
+⚠️  Authentication enabled but storageState.json not found - running unauthenticated
 ```
 
 **Solutions:**
 - Verify login credentials in `.env` file
 - Check `COMMON_SELECTOR` matches post-login page element
-- Increase timeout in `playwright.config.ts`
+- Run global setup manually: `npx playwright test --config=playwright.config.ts --global-setup`
+- Verify `storageState.json` exists after global setup
 - Test manual login with same credentials
+- Check for CAPTCHA or anti-automation measures
 
 #### 3. Browser Launch Issues  
 ```
@@ -572,13 +800,27 @@ Error: Failed to launch browser
 #### 5. Memory Issues
 ```
 JavaScript heap out of memory
+FATAL ERROR: Reached heap limit Allocation failed
 ```
 
 **Solutions:**
 - Increase Node.js memory: `NODE_OPTIONS="--max-old-space-size=4096" npm run zapTest`
-- Reduce concurrent scans
-- Process URLs in smaller batches
-- Close browser instances between scans
+- Reduce number of URLs being scanned
+- Use URL filtering to process in batches
+- Scan in unauthenticated mode (skips global setup overhead)
+- Close other applications to free memory
+
+#### 6. storageState.json Not Found
+```
+⚠️  Authentication enabled but storageState.json not found - running unauthenticated
+```
+
+**Solutions:**
+- This is a warning, not an error - scan will continue without auth
+- Generate storageState: `USE_AUTHENTICATION=true npx playwright test --global-setup`
+- Check if `.env` has correct `LOGIN_URL`, `LOGIN_EMAIL`, `LOGIN_PASSWORD`
+- Verify `COMMON_SELECTOR` exists on post-login page
+- For unauthenticated scans, use: `node scan.js unauth` or `USE_AUTHENTICATION=false`
 
 ### Debug Mode
 
@@ -745,12 +987,55 @@ try {
 
 ### General Questions
 
+**Q: Why does this tool use Playwright with ZAP?**
+A: Playwright and ZAP serve complementary roles:
+- **Playwright**: Handles complex authentication (forms, CSRF tokens, MFA), maintains sessions via `storageState.json`, executes JavaScript for SPAs, and navigates authenticated pages
+- **ZAP**: Performs security testing (vulnerability scanning, attack simulations, report generation)
+- **Together**: Playwright authenticates and navigates → ZAP scans the authenticated traffic
+
+ZAP alone struggles with modern authentication flows. Playwright alone doesn't perform security testing. The combination enables comprehensive security scanning of authenticated web applications.
+
+**Q: Can I use ZAP without Playwright?**
+A: Yes, but with limitations:
+- ✅ Simple HTTP Basic Authentication
+- ✅ Public/unauthenticated pages
+- ❌ Complex form-based login
+- ❌ JavaScript-heavy single page applications
+- ❌ CSRF token handling
+- ❌ Multi-step authentication flows
+
+For modern web applications, Playwright significantly enhances ZAP's capabilities.
+
 **Q: How long does a typical scan take?**
 A: Scan duration depends on several factors:
 - Number of URLs (5-60 minutes per URL)
 - Application complexity and size
 - Network latency and server response times
-- Scan depth and policy configuration
+- Spider depth and active scan intensity
+- Number of pages discovered by spider
+
+A single URL might take 10-30 minutes (spider + active scan).
+
+**Q: What's the difference between authenticated, unauthenticated, and mixed mode?**
+A: Each mode serves different purposes:
+
+**Authenticated Mode** (`USE_AUTHENTICATION=true`):
+- Runs `global-setup.ts` to login and create `storageState.json`
+- Scans protected pages that require authentication
+- Uses cookies/tokens from authenticated session
+- Best for: Testing application features behind login
+
+**Unauthenticated Mode** (`USE_AUTHENTICATION=false`):
+- Skips authentication setup entirely
+- Scans public pages without login
+- Runs headless by default (faster)
+- Best for: Testing public pages, login forms, marketing sites, APIs
+
+**Mixed Mode** (`USE_AUTHENTICATION=mixed`):
+- Runs both authenticated AND unauthenticated scans
+- Uses `urls-authenticated.txt` for auth scans
+- Uses `urls-unauthenticated.txt` for public scans
+- Best for: Comprehensive coverage of entire application
 
 **Q: Can I scan applications that require MFA?**
 A: Yes, but you'll need to modify the authentication flow in `global-setup.ts` to handle MFA steps. Consider using test accounts with MFA disabled if possible.
@@ -843,7 +1128,7 @@ A: While this tool focuses on web UI scanning, you can:
 ### Documentation
 - [OWASP ZAP Documentation](https://www.zaproxy.org/docs/)
 - [Playwright Documentation](https://playwright.dev/)
-- [Project GitHub Repository](https://github.com/your-org/playwright-zap-dast)
+- [Project GitHub Repository](https://github.com/kston83/playwright-zap-dast)
 
 ### Community
 - [OWASP ZAP User Group](https://groups.google.com/g/zaproxy-users)
@@ -861,6 +1146,6 @@ A: While this tool focuses on web UI scanning, you can:
 
 *This user guide covers the essential aspects of using the Playwright ZAP DAST tool. For advanced customization and development topics, refer to the refactoring plan and codebase documentation.*
 
-**Document Version:** 1.0  
-**Last Updated:** October 23, 2025  
+**Document Version:** 1.1  
+**Last Updated:** October 24, 2025  
 **Compatibility:** Node.js 18+, OWASP ZAP 2.11+, Playwright 1.55+
